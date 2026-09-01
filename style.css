@@ -374,6 +374,7 @@ body.cart-open { overflow: hidden; }
   width: min(90vw, 540px);
   z-index: 70;
 }
+
 .checkout-drawer.is-open {
   transform: translateX(0);
 }
