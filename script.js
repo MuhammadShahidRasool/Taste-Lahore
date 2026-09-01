@@ -318,6 +318,7 @@ document.querySelectorAll('.dish-card').forEach((card) => {
   const wishlistButton = card.querySelector('.wishlist-button');
   const wishlistIcon = wishlistButton.querySelector('i');
   const addCartButton = card.querySelector('.add-cart-button');
+  const isTouchDevice = window.matchMedia('(hover: none)').matches;
 
   wishlistButton.addEventListener('click', (event) => {
     event.stopPropagation();
@@ -332,11 +333,21 @@ document.querySelectorAll('.dish-card').forEach((card) => {
     console.log(`${dishName} added to cart`);
   });
 
-  // Touch devices use a tap to reveal the same overlay hover state.
+  // Touch devices use a tap to toggle the same dark theme state that :hover provides on desktop.
   card.addEventListener('click', (event) => {
     if (event.target.closest('button')) return;
-    if (window.matchMedia('(hover: none)').matches) card.classList.toggle('is-touch-active');
+    if (isTouchDevice) {
+      card.classList.toggle('active-dark');
+      card.classList.toggle('is-touch-active', card.classList.contains('active-dark'));
+    }
   });
+
+  if (isTouchDevice) {
+    card.addEventListener('mouseleave', () => {
+      card.classList.remove('active-dark');
+      card.classList.remove('is-touch-active');
+    });
+  }
 });
 
 // Menu data is grouped by category so new dishes can be added without changing the markup.
