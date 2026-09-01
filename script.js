@@ -353,22 +353,6 @@ document.querySelectorAll('.dish-card').forEach((card) => {
 // Menu data is grouped by category so new dishes can be added without changing the markup.
 const menuItems = {
   'daily-menu': [
-  ['Daal Makhni', '$14.99', 'images/Daily-menu/Daal-Makhni-1024x682.jpeg'],
-  ['Egg', '$8.99', 'images/Daily-menu/EGG.jpg'],
-  ['Haleem', '$16.99', 'images/Daily-menu/Haleem.jpeg'],
-  ['Murgh Channa', '$18.99', 'images/Daily-menu/murgh-channa.jpg'],
-  ['Mutton Chilli', '$27.99', 'images/Daily-menu/MUTTON-CHILLI.jpg'],
-  ['Mutton Korma', '$31.99', 'images/Daily-menu/mutton-korma.jpg'],
-  ['Nihari', '$24.99', 'images/Daily-menu/NIHARI-1024x682.jpg'],
-  ['Punjabi Kadhi Pakora', '$15.99', 'images/Daily-menu/punjabi-kadhi-pakora.jpg'],
-  ['Beef Paya', '$26.99', 'images/Daily-menu/qasr-lahore-beef-paya.jpg'],
-  ['Sabzi', '$12.99', 'images/Daily-menu/Sabzi.jpeg']
-],
-  // Menu data grouped by category. Paths are relative — your "images" folder
-// must sit in the same directory as your index.html for these to load.
-// Prices below are PLACEHOLDERS — update with your real menu prices.
-
-  'daily-menu': [
     ['Daal Makhni', '$14.99', 'images/Daily-menu/Daal-Makhni-1024x682.jpeg'],
     ['Egg', '$8.99', 'images/Daily-menu/EGG.jpg'],
     ['Haleem', '$16.99', 'images/Daily-menu/Haleem.jpeg'],
@@ -503,22 +487,538 @@ const menuItems = {
   ]
 };
 
+const productCategoryLabels = {
+  'daily-menu': 'Daily Menu',
+  breakfast: 'Breakfast',
+  chicken: 'Chicken',
+  mutton: 'Mutton',
+  bbq: 'BBQ',
+  tawa: 'Tawa',
+  tandoor: 'Tandoor',
+  'sweets-chats': 'Sweets & Chats',
+  drinks: 'Drinks'
+};
+
+const products = [];
+let productIdCounter = 1;
+
+Object.entries(menuItems).forEach(([categoryKey, items]) => {
+  const categoryName = productCategoryLabels[categoryKey] || categoryKey;
+
+  items.forEach(([name, priceText, image]) => {
+    const numericPrice = Number.parseFloat(String(priceText).replace(/[^0-9.]/g, ''));
+
+    products.push({
+      id: productIdCounter,
+      name,
+      category: categoryName,
+      price: numericPrice,
+      image,
+      description: `Classic ${name} from our ${categoryName} menu.`,
+      available: true
+    });
+
+    productIdCounter += 1;
+  });
+});
+
+let cart = [];
+const CART_STORAGE_KEY = 'tasteLahoreCart';
+const cartToast = document.querySelector('.cart-toast');
+const cartOverlay = document.querySelector('.cart-overlay');
+const cartDrawer = document.querySelector('.cart-drawer');
+const cartItemsContainer = document.querySelector('.cart-drawer__items');
+const cartSubtotal = document.querySelector('.cart-summary__value');
+const cartCloseButton = document.querySelector('.cart-drawer__close');
+const checkoutDrawer = document.querySelector('.checkout-drawer');
+const checkoutCloseButton = document.querySelector('.checkout-drawer__close');
+const checkoutProceedButton = document.querySelector('.checkout-proceed-btn');
+const checkoutForm = document.querySelector('.checkout-form');
+const checkoutSummaryItems = document.querySelector('.checkout-summary__items');
+const checkoutSubtotalValue = document.querySelector('.checkout-subtotal__value');
+const checkoutTotalValue = document.querySelector('.checkout-total__value');
+const checkoutEmptyState = document.querySelector('.checkout-empty');
+const checkoutConfirmation = document.querySelector('.checkout-confirmation');
+const checkoutModalBackdrop = document.querySelector('.checkout-modal-backdrop');
+const checkoutConfirmationModal = document.querySelector('.checkout-confirmation-modal');
+const checkoutConfirmationModalMessage = document.querySelector('.checkout-confirmation-modal__message');
+const checkoutConfirmationModalClose = document.querySelector('.checkout-confirmation-modal__close');
+const checkoutConfirmationModalButton = document.querySelector('.checkout-confirmation-modal__button');
+let cartToastTimer;
+
+function saveCart() {
+  try {
+    const cartState = cart.map(({ id, quantity }) => ({ id, quantity }));
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartState));
+  } catch (error) {
+    console.warn('Taste Lahore cart could not be saved:', error);
+  }
+}
+
+function loadCart() {
+  try {
+    const savedCart = localStorage.getItem(CART_STORAGE_KEY);
+
+    if (!savedCart) {
+      cart = [];
+      return;
+    }
+
+    const parsedCart = JSON.parse(savedCart);
+
+    if (!Array.isArray(parsedCart)) {
+      cart = [];
+      localStorage.removeItem(CART_STORAGE_KEY);
+      return;
+    }
+
+    const validProductIds = new Set(products.map((product) => product.id));
+
+    cart = parsedCart
+      .filter((item) => {
+        if (!item || typeof item !== 'object') return false;
+
+        const parsedId = Number(item.id);
+        const parsedQuantity = Number(item.quantity);
+        const hasValidProduct = validProductIds.has(parsedId);
+        const hasValidQuantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0;
+
+        return hasValidProduct && hasValidQuantity;
+      })
+      .map((item) => {
+        const product = products.find((menuProduct) => menuProduct.id === Number(item.id));
+        const quantity = Math.max(1, Math.floor(Number(item.quantity) || 1));
+
+        return {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          image: product.image,
+          quantity
+        };
+      });
+  } catch (error) {
+    console.warn('Taste Lahore cart could not be loaded:', error);
+    cart = [];
+    localStorage.removeItem(CART_STORAGE_KEY);
+  }
+}
+
+function formatPrice(value) {
+  const numericValue = Number(value || 0);
+  return `Rs. ${numericValue.toLocaleString('en-PK', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  })}`;
+}
+
+function calculateCartSubtotal() {
+  return cart.reduce((sum, item) => {
+    const product = products.find((menuProduct) => menuProduct.id === item.id);
+    return sum + ((product ? product.price : item.price || 0) * Number(item.quantity || 0));
+  }, 0);
+}
+
+function updateCartCount() {
+  const totalQuantity = cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+  const cartCount = document.querySelector('.cart-count');
+  if (cartCount) cartCount.textContent = String(totalQuantity);
+  const cartButton = document.querySelector('.cart-button');
+  if (cartButton) cartButton.setAttribute('aria-label', `Shopping cart with ${totalQuantity} items`);
+}
+
+function renderCart() {
+  if (!cartItemsContainer || !cartSubtotal) return;
+
+  const checkoutProceedButton = document.querySelector('.checkout-proceed-btn');
+  if (checkoutProceedButton) {
+    checkoutProceedButton.hidden = !cart.length;
+  }
+
+  if (!cart.length) {
+    cartItemsContainer.innerHTML = `
+      <div class="cart-empty">
+        <div class="cart-empty__icon"><i class="fa-solid fa-bag-shopping" aria-hidden="true"></i></div>
+        <h3>Your cart is empty.</h3>
+        <p>Add some delicious food from our menu.</p>
+      </div>
+    `;
+    cartSubtotal.textContent = formatPrice(0);
+    return;
+  }
+
+  const cartMarkup = cart.map((item) => {
+    const product = products.find((menuProduct) => menuProduct.id === item.id) || {
+      name: item.name,
+      price: item.price,
+      image: item.image
+    };
+
+    return `
+      <article class="cart-item" data-cart-id="${item.id}">
+        <div class="cart-item__image-wrap">
+          <img src="${product.image}" alt="${product.name}">
+        </div>
+        <div class="cart-item__details">
+          <h3>${product.name}</h3>
+          <p>${formatPrice(product.price || 0)}</p>
+          <div class="cart-item__controls">
+            <div class="cart-quantity" aria-label="Quantity controls">
+              <button class="cart-quantity__button cart-quantity__button--decrease" type="button" data-product-id="${item.id}" aria-label="Decrease quantity">
+                <i class="fa-solid fa-minus" aria-hidden="true"></i>
+              </button>
+              <span class="cart-quantity__value">${Number(item.quantity || 0)}</span>
+              <button class="cart-quantity__button cart-quantity__button--increase" type="button" data-product-id="${item.id}" aria-label="Increase quantity">
+                <i class="fa-solid fa-plus" aria-hidden="true"></i>
+              </button>
+            </div>
+            <button class="cart-remove-btn" type="button" data-product-id="${item.id}" aria-label="Remove ${product.name}">Remove</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join('');
+
+  cartItemsContainer.innerHTML = cartMarkup;
+  cartSubtotal.textContent = formatPrice(calculateCartSubtotal());
+}
+
+function updateCartQuantity(productId, change) {
+  const numericId = Number(productId);
+  const itemIndex = cart.findIndex((item) => item.id === numericId);
+
+  if (itemIndex === -1) return;
+
+  const nextQuantity = cart[itemIndex].quantity + change;
+
+  if (nextQuantity <= 0) {
+    cart.splice(itemIndex, 1);
+  } else {
+    cart[itemIndex].quantity = nextQuantity;
+  }
+
+  saveCart();
+  updateCartCount();
+  renderCart();
+  if (checkoutDrawer && checkoutDrawer.classList.contains('is-open')) {
+    renderCheckout();
+  }
+}
+
+function removeCartItem(productId) {
+  const numericId = Number(productId);
+  cart = cart.filter((item) => item.id !== numericId);
+  saveCart();
+  updateCartCount();
+  renderCart();
+  if (checkoutDrawer && checkoutDrawer.classList.contains('is-open')) {
+    renderCheckout();
+  }
+}
+
+function openCartDrawer() {
+  if (!cartDrawer || !cartOverlay) return;
+  cartDrawer.classList.add('is-open');
+  cartDrawer.setAttribute('aria-hidden', 'false');
+  if (checkoutDrawer) {
+    checkoutDrawer.classList.remove('is-open');
+    checkoutDrawer.setAttribute('aria-hidden', 'true');
+  }
+  cartOverlay.classList.add('is-open');
+  cartOverlay.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('cart-open');
+  renderCart();
+}
+
+function closeCartDrawer() {
+  if (!cartDrawer || !cartOverlay) return;
+  cartDrawer.classList.remove('is-open');
+  cartDrawer.setAttribute('aria-hidden', 'true');
+  cartOverlay.classList.remove('is-open');
+  cartOverlay.setAttribute('aria-hidden', 'true');
+  if (!checkoutDrawer || !checkoutDrawer.classList.contains('is-open')) {
+    document.body.classList.remove('cart-open');
+  }
+}
+
+function closeCheckoutDrawer() {
+  if (!checkoutDrawer || !cartOverlay) return;
+  checkoutDrawer.classList.remove('is-open');
+  checkoutDrawer.setAttribute('aria-hidden', 'true');
+  cartOverlay.classList.remove('is-open');
+  cartOverlay.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('cart-open');
+}
+
+function getCheckoutSummaryItems() {
+  return cart.map((item) => {
+    const product = products.find((menuProduct) => menuProduct.id === item.id);
+    const unitPrice = product ? product.price : Number(item.price || 0);
+    const quantity = Number(item.quantity || 0);
+    return {
+      id: item.id,
+      name: product ? product.name : item.name,
+      image: product ? product.image : item.image,
+      quantity,
+      unitPrice,
+      itemTotal: unitPrice * quantity
+    };
+  });
+}
+
+function renderCheckout() {
+  if (!checkoutForm || !checkoutSummaryItems || !checkoutSubtotalValue || !checkoutTotalValue) return;
+
+  if (!cart.length) {
+    checkoutForm.hidden = true;
+    if (checkoutEmptyState) {
+      checkoutEmptyState.hidden = false;
+    }
+    if (checkoutConfirmation) {
+      checkoutConfirmation.textContent = '';
+    }
+    if (checkoutSubtotalValue) {
+      checkoutSubtotalValue.textContent = formatPrice(0);
+    }
+    if (checkoutTotalValue) {
+      checkoutTotalValue.textContent = formatPrice(0);
+    }
+    checkoutSummaryItems.innerHTML = `
+      <div class="checkout-summary__empty">
+        <p>Your cart is empty.</p>
+      </div>
+    `;
+    return;
+  }
+
+  if (checkoutEmptyState) {
+    checkoutEmptyState.hidden = true;
+  }
+  checkoutForm.hidden = false;
+
+  const summaryItems = getCheckoutSummaryItems();
+  const subtotal = calculateCartSubtotal();
+  const deliveryFee = 0;
+  const total = subtotal + deliveryFee;
+
+  checkoutSummaryItems.innerHTML = summaryItems.map((item) => `
+    <article class="checkout-summary__item" data-checkout-id="${item.id}">
+      <div class="checkout-summary__thumb">
+        <img src="${item.image}" alt="${item.name}">
+      </div>
+      <div class="checkout-summary__details">
+        <h4>${item.name}</h4>
+        <p>Qty: ${item.quantity}</p>
+        <p>${formatPrice(item.unitPrice)} each</p>
+        <strong>Item Total: ${formatPrice(item.itemTotal)}</strong>
+      </div>
+    </article>
+  `).join('');
+
+  checkoutSubtotalValue.textContent = formatPrice(subtotal);
+  checkoutTotalValue.textContent = formatPrice(total);
+}
+
+function openCheckoutDrawer() {
+  if (!checkoutDrawer || !cartOverlay) return;
+
+  if (!cart.length) {
+    renderCheckout();
+    checkoutDrawer.classList.add('is-open');
+    checkoutDrawer.setAttribute('aria-hidden', 'false');
+    cartOverlay.classList.add('is-open');
+    cartOverlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('cart-open');
+    return;
+  }
+
+  if (cartDrawer) {
+    cartDrawer.classList.remove('is-open');
+    cartDrawer.setAttribute('aria-hidden', 'true');
+  }
+
+  renderCheckout();
+  checkoutDrawer.classList.add('is-open');
+  checkoutDrawer.setAttribute('aria-hidden', 'false');
+  cartOverlay.classList.add('is-open');
+  cartOverlay.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('cart-open');
+}
+
+function setCheckoutFieldError(fieldName, message) {
+  const input = checkoutForm ? checkoutForm.querySelector(`[name="${fieldName}"]`) : null;
+  const errorElement = checkoutForm ? checkoutForm.querySelector(`[data-error-for="${fieldName}"]`) : null;
+
+  if (!input || !errorElement) return;
+
+  input.classList.toggle('checkout-field--error', Boolean(message));
+  input.setAttribute('aria-invalid', String(Boolean(message)));
+  errorElement.textContent = message || '';
+}
+
+function validateCheckoutField(fieldName) {
+  const field = checkoutForm ? checkoutForm.querySelector(`[name="${fieldName}"]`) : null;
+  if (!field) return true;
+
+  const value = field.value.trim();
+
+  if (fieldName === 'name') {
+    if (!value) {
+      setCheckoutFieldError('name', 'Please enter your full name.');
+      return false;
+    }
+    setCheckoutFieldError('name', '');
+    return true;
+  }
+
+  if (fieldName === 'phone') {
+    const normalizedPhone = value.replace(/\s+/g, '').replace(/-/g, '');
+    const isPakistaniPhone = /^(?:\+92|92|0)?3\d{9}$/.test(normalizedPhone);
+    if (!value) {
+      setCheckoutFieldError('phone', 'Please enter your phone number.');
+      return false;
+    }
+    if (!isPakistaniPhone) {
+      setCheckoutFieldError('phone', 'Please enter a valid Pakistani phone number.');
+      return false;
+    }
+    setCheckoutFieldError('phone', '');
+    return true;
+  }
+
+  if (fieldName === 'address') {
+    if (!value) {
+      setCheckoutFieldError('address', 'Please enter your delivery address.');
+      return false;
+    }
+    setCheckoutFieldError('address', '');
+    return true;
+  }
+
+  return true;
+}
+
+function validateCheckoutForm() {
+  const fields = ['name', 'phone', 'address'];
+  let isValid = true;
+
+  fields.forEach((fieldName) => {
+    if (!validateCheckoutField(fieldName)) {
+      isValid = false;
+    }
+  });
+
+  return isValid;
+}
+
+function openCheckoutConfirmation(message) {
+  if (!checkoutModalBackdrop || !checkoutConfirmationModal || !checkoutConfirmationModalMessage) return;
+  checkoutConfirmationModalMessage.textContent = message;
+  checkoutModalBackdrop.setAttribute('aria-hidden', 'false');
+  checkoutConfirmationModal.setAttribute('aria-hidden', 'false');
+  checkoutModalBackdrop.classList.add('is-visible');
+  checkoutConfirmationModal.classList.add('is-visible');
+  checkoutConfirmationModal.setAttribute('tabindex', '-1');
+  checkoutConfirmationModal.focus();
+}
+
+function closeCheckoutConfirmation() {
+  if (!checkoutModalBackdrop || !checkoutConfirmationModal) return;
+  checkoutModalBackdrop.setAttribute('aria-hidden', 'true');
+  checkoutConfirmationModal.setAttribute('aria-hidden', 'true');
+  checkoutModalBackdrop.classList.remove('is-visible');
+  checkoutConfirmationModal.classList.remove('is-visible');
+}
+
+function showCheckoutConfirmation(message) {
+  if (!checkoutConfirmation) return;
+  checkoutConfirmation.textContent = message;
+}
+
+function showCartToast(message) {
+  if (!cartToast) return;
+  cartToast.textContent = message;
+  cartToast.classList.add('is-visible');
+  window.clearTimeout(cartToastTimer);
+  cartToastTimer = window.setTimeout(() => cartToast.classList.remove('is-visible'), 1400);
+}
+
+function addToCart(productId) {
+  const numericId = Number(productId);
+  const product = products.find((item) => item.id === numericId);
+
+  if (!product || !product.available) return;
+
+  const existingItem = cart.find((item) => item.id === product.id);
+
+  if (existingItem) {
+    existingItem.quantity += 1;
+  } else {
+    cart.push({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: product.image,
+      quantity: 1
+    });
+  }
+
+  console.log('Taste Lahore Cart:', cart);
+  saveCart();
+  updateCartCount();
+  renderCart();
+  showCartToast(`✓ ${product.name} added to cart`);
+}
+
+console.log('Taste Lahore Products:', products);
+console.log('Total Products:', products.length);
+console.log('First Product:', products[0]);
+
 // Rebuild the dish grid whenever a category tab is selected.
 const menuTabs = document.querySelectorAll('.menu-tab');
 const menuDishes = document.querySelector('.menu-dishes');
 
 function renderMenu(category) {
   const normalizedCategory = menuItems[category] ? category : 'daily-menu';
+  const categoryName = productCategoryLabels[normalizedCategory] || normalizedCategory;
+  const categoryProducts = products.filter((product) => product.category === categoryName);
+
+  if (!menuDishes) return;
+
   menuDishes.classList.add('is-changing');
   menuDishes.innerHTML = '';
-  (menuItems[normalizedCategory] || []).forEach(([name, price, image]) => {
-    const dish = document.createElement('button');
+
+  categoryProducts.forEach((product) => {
+    const dish = document.createElement('div');
     dish.className = 'menu-dish';
-    dish.type = 'button';
-    dish.innerHTML = `<img class="menu-dish__image" src="${image}" alt="${name}"><span><strong class="menu-dish__name">${name}</strong><small class="menu-dish__description">It's a testament to our.</small></span><strong class="menu-dish__price">${price}</strong>`;
-    dish.addEventListener('click', () => console.log(`${name} clicked`));
+    dish.dataset.productId = String(product.id);
+    dish.dataset.name = product.name;
+    dish.innerHTML = `
+      <img class="menu-dish__image" src="${product.image}" alt="${product.name}">
+      <span class="menu-dish__text">
+        <strong class="menu-dish__name">${product.name}</strong>
+        <small class="menu-dish__description">${product.description}</small>
+      </span>
+      <span class="menu-dish__meta">
+        <strong class="menu-dish__price">${formatPrice(product.price)}</strong>
+        <button class="add-to-cart-btn" type="button" data-product-id="${product.id}">Add to Cart</button>
+      </span>
+    `;
+
+    dish.addEventListener('click', (event) => {
+      if (event.target.closest('.add-to-cart-btn')) return;
+      console.log(`${product.name} clicked`);
+    });
+
+    const addButton = dish.querySelector('.add-to-cart-btn');
+    addButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      addToCart(event.currentTarget.dataset.productId);
+    });
+
     menuDishes.appendChild(dish);
   });
+
   window.requestAnimationFrame(() => menuDishes.classList.remove('is-changing'));
 }
 
@@ -533,6 +1033,116 @@ if (menuDishes) {
   }));
   renderMenu('daily-menu');
 }
+
+const cartButton = document.querySelector('.cart-button');
+if (cartButton) {
+  cartButton.addEventListener('click', () => {
+    openCartDrawer();
+  });
+}
+
+if (cartCloseButton) {
+  cartCloseButton.addEventListener('click', closeCartDrawer);
+}
+
+if (cartOverlay) {
+  cartOverlay.addEventListener('click', () => {
+    closeCartDrawer();
+    closeCheckoutDrawer();
+  });
+}
+
+if (cartItemsContainer) {
+  cartItemsContainer.addEventListener('click', (event) => {
+    const control = event.target.closest('.cart-quantity__button');
+    if (control) {
+      const delta = control.classList.contains('cart-quantity__button--increase') ? 1 : -1;
+      updateCartQuantity(control.dataset.productId, delta);
+      return;
+    }
+
+    const removeButton = event.target.closest('.cart-remove-btn');
+    if (removeButton) {
+      removeCartItem(removeButton.dataset.productId);
+    }
+  });
+}
+
+if (checkoutProceedButton) {
+  checkoutProceedButton.addEventListener('click', () => {
+    openCheckoutDrawer();
+  });
+}
+
+if (checkoutCloseButton) {
+  checkoutCloseButton.addEventListener('click', closeCheckoutDrawer);
+}
+
+const checkoutContinueButtons = document.querySelectorAll('.checkout-continue-btn');
+checkoutContinueButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    closeCheckoutDrawer();
+    closeCartDrawer();
+  });
+});
+
+if (checkoutForm) {
+  checkoutForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    showCheckoutConfirmation('');
+    closeCheckoutConfirmation();
+
+    if (!validateCheckoutForm()) {
+      showCheckoutConfirmation('Please complete all required fields.');
+      return;
+    }
+
+    openCheckoutConfirmation('Your customer information has been successfully validated. Actual order submission will be connected in a future step.');
+  });
+
+  ['name', 'phone', 'address'].forEach((fieldName) => {
+    const field = checkoutForm.querySelector(`[name="${fieldName}"]`);
+    if (!field) return;
+
+    field.addEventListener('input', () => {
+      validateCheckoutField(fieldName);
+      if (checkoutConfirmation) {
+        checkoutConfirmation.textContent = '';
+      }
+    });
+
+    field.addEventListener('blur', () => {
+      validateCheckoutField(fieldName);
+    });
+  });
+}
+
+if (checkoutModalBackdrop) {
+  checkoutModalBackdrop.addEventListener('click', closeCheckoutConfirmation);
+}
+
+if (checkoutConfirmationModalClose) {
+  checkoutConfirmationModalClose.addEventListener('click', closeCheckoutConfirmation);
+}
+
+if (checkoutConfirmationModalButton) {
+  checkoutConfirmationModalButton.addEventListener('click', closeCheckoutConfirmation);
+}
+
+if (checkoutDrawer) {
+  const checkoutBackButton = checkoutDrawer.querySelector('.checkout-back-btn');
+  if (checkoutBackButton) {
+    checkoutBackButton.addEventListener('click', () => {
+      closeCheckoutDrawer();
+      openCartDrawer();
+    });
+  }
+}
+
+loadCart();
+updateCartCount();
+renderCart();
+renderCheckout();
 
 // Newsletter validation: customize the rules or success copy here later.
 const newsletterForm = document.querySelector('.newsletter-form');

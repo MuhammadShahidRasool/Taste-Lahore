@@ -60,8 +60,8 @@
 							<li><a href="#food-menu-section" data-category="drinks"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10l-1 16H8L7 4Zm2 4h6M10 2h4" /></svg>Drinks</a></li>
 						</ul>
 					</li>
-					<li class="nav-item"><a href="#" data-log="Blog">Blog <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></a><ul class="dropdown"><li><a href="#" data-log="Latest news">Latest news</a></li><li><a href="#" data-log="Recipes">Recipes</a></li></ul></li>
-					<li class="nav-item"><a href="#" data-log="Shop">Shop <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></a><ul class="dropdown"><li><a href="#" data-log="Order online">Order online</a></li><li><a href="#" data-log="Gift cards">Gift cards</a></li></ul></li>
+					
+				
 					<li class="nav-item"><a href="#" data-log="Contact">Contact <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></a><ul class="dropdown"><li><a href="#" data-log="Find us">Find us</a></li><li><a href="#" data-log="Reservations">Reservations</a></li></ul></li>
 				</ul>
 				<div class="nav-actions">
@@ -69,6 +69,10 @@
 						<button class="search-button" type="button" aria-label="Open search" aria-expanded="false"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></button>
 						<form class="search-form" role="search"><input type="search" placeholder="Search..." aria-label="Search"><button type="submit" aria-label="Submit search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button></form>
 					</div>
+					<button class="cart-button" type="button" aria-label="Shopping cart">
+						<span class="cart-button__icon"><i class="fa-solid fa-cart-shopping" aria-hidden="true"></i></span>
+						<span class="cart-button__label">Cart (<span class="cart-count">0</span>)</span>
+					</button>
 					<a class="order-button" href="#order" data-log="Order now">ORDER NOW <span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span></a>
 				</div>
 			</div>
@@ -255,6 +259,106 @@
 		<div class="footer-copyright"><span>© All Copyright 2026 by ZahidSolutions</span><div><a href="#" data-log="Terms and Condition">Terms &amp; Condition</a><a href="#" data-log="Footer Privacy Policy">Privacy Policy</a></div></div>
 	</footer>
 
+	<div class="cart-overlay" aria-hidden="true"></div>
+	<aside class="cart-drawer" aria-label="Shopping cart" aria-hidden="true">
+		<div class="cart-drawer__header">
+			<h2>Your Cart</h2>
+			<button class="cart-drawer__close" type="button" aria-label="Close cart"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+		</div>
+		<div class="cart-drawer__items" aria-live="polite"></div>
+		<div class="cart-drawer__summary">
+			<div class="cart-summary__row">
+				<span>Subtotal</span>
+				<strong class="cart-summary__value">Rs. 0</strong>
+			</div>
+			<button class="checkout-proceed-btn" type="button">Proceed to Checkout</button>
+		</div>
+	</aside>
+
+	<aside class="checkout-drawer" aria-label="Checkout" aria-hidden="true">
+		<div class="checkout-drawer__header">
+			<div>
+				<p class="checkout-drawer__eyebrow">Checkout</p>
+				<h2>Customer Information</h2>
+			</div>
+			<button class="checkout-drawer__close" type="button" aria-label="Close checkout"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+		</div>
+		<div class="checkout-drawer__body">
+			<div class="checkout-empty" hidden>
+				<div class="checkout-empty__icon"><i class="fa-solid fa-cart-shopping" aria-hidden="true"></i></div>
+				<h3>Your cart is empty.</h3>
+				<p>Add items from the menu to continue to checkout.</p>
+				<button class="checkout-continue-btn checkout-continue-btn--empty" type="button">Continue Shopping</button>
+			</div>
+
+			<form class="checkout-form" novalidate>
+				<div class="checkout-form__group">
+					<label for="customer-name">Full Name</label>
+					<input id="customer-name" name="name" type="text" placeholder="Enter your full name" required>
+					<small class="checkout-field__error" data-error-for="name"></small>
+				</div>
+
+				<div class="checkout-form__group">
+					<label for="customer-phone">Phone Number</label>
+					<input id="customer-phone" name="phone" type="tel" inputmode="tel" placeholder="03XX XXXXXXX" required>
+					<small class="checkout-field__error" data-error-for="phone"></small>
+				</div>
+
+				<div class="checkout-form__group">
+					<label for="customer-address">Delivery Address</label>
+					<textarea id="customer-address" name="address" rows="4" placeholder="Enter your complete delivery address" required></textarea>
+					<small class="checkout-field__error" data-error-for="address"></small>
+				</div>
+
+				<div class="checkout-form__group">
+					<label for="customer-notes">Order Notes (Optional)</label>
+					<textarea id="customer-notes" name="notes" rows="3" placeholder="Any special instructions?"></textarea>
+				</div>
+
+				<div class="checkout-summary">
+					<div class="checkout-summary__header">
+						<h3>Order Summary</h3>
+					</div>
+					<div class="checkout-summary__items" aria-live="polite"></div>
+					<div class="checkout-summary__totals">
+						<div class="checkout-total__row">
+							<span>Subtotal</span>
+							<strong class="checkout-subtotal__value">Rs. 0</strong>
+						</div>
+						<div class="checkout-total__row">
+							<span>Delivery Fee</span>
+							<strong>Rs. 0</strong>
+						</div>
+						<div class="checkout-total__row checkout-total__row--grand">
+							<span>Total</span>
+							<strong class="checkout-total__value">Rs. 0</strong>
+						</div>
+					</div>
+				</div>
+
+				<div class="checkout-form__actions">
+					<button class="checkout-back-btn" type="button">← Back to Cart</button>
+					<button class="checkout-continue-btn" type="button">Continue Shopping</button>
+				</div>
+
+				<button class="checkout-submit-btn" type="submit">Place Order</button>
+				<p class="checkout-confirmation" aria-live="polite"></p>
+			</form>
+		</div>
+	</aside>
+
+	<div class="checkout-modal-backdrop" aria-hidden="true"></div>
+	<div class="checkout-confirmation-modal" role="dialog" aria-modal="true" aria-labelledby="checkout-confirmation-title" aria-hidden="true">
+		<div class="checkout-confirmation-modal__content">
+			<div class="checkout-confirmation-modal__header">
+				<h3 id="checkout-confirmation-title">Information Valid</h3>
+				<button class="checkout-confirmation-modal__close" type="button" aria-label="Close confirmation">×</button>
+			</div>
+			<p class="checkout-confirmation-modal__message">Your customer information has been successfully validated. Actual order submission will be connected in a future step.</p>
+			<button class="checkout-confirmation-modal__button" type="button">Close</button>
+		</div>
+	</div>
+	<div class="cart-toast" aria-live="polite"></div>
 	<script src="script.js"></script>
 </body>
 </html>
