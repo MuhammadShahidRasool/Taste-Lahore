@@ -125,6 +125,40 @@ if (foodMenuNavLink) {
   });
 }
 
+// HEADER DROPDOWN TO TABS INTEGRATION
+// ====================================
+// When a user clicks a category link in the header dropdown (e.g., "Chicken", "BBQ"),
+// this handler:
+// 1) Finds the matching tab button by matching data-category values
+// 2) Clicks the tab to trigger the existing tab-switching logic
+// 3) Smoothly scrolls to the menu section below the sticky navbar
+// 4) Closes the dropdown menu
+//
+// This allows single-page navigation: clicking a dropdown item acts as both
+// a smooth scroll AND an automatic tab activation, all on the same page.
+document.querySelectorAll('.food-menu-dropdown a[data-category]').forEach((link) => {
+  link.addEventListener('click', (event) => {
+    event.preventDefault();
+    const selectedCategory = link.getAttribute('data-category');
+    
+    // Find the matching tab button using the same data-category value.
+    const matchingTab = document.querySelector(`.menu-tab[data-category="${selectedCategory}"]`);
+    
+    if (matchingTab) {
+      // Click the tab to trigger existing tab-switching logic (updates active class,
+      // aria-selected, and renders the dish list via renderMenu()).
+      matchingTab.click();
+    }
+    
+    // Smooth scroll to the menu section, offset by the sticky navbar height.
+    scrollToSection('food-menu-section');
+    
+    // Close the dropdown by reverting the is-open state and aria-expanded.
+    setFoodMenuState(false);
+  });
+});
+// END HEADER DROPDOWN TO TABS INTEGRATION
+
 // On the destination page, do the smooth scroll after the page and images finish loading.
 if (window.location.hash === '#food-menu-section') {
   window.addEventListener('load', () => {
