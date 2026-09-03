@@ -1,0 +1,9 @@
+{
+  "customer_name": "Test Customer",
+  "phone": "03000000000",
+  "address": "123 Test Street, Lahore",
+  "notes": "Please deliver after 6 PM",
+  "items": [
+    { "product_id": 1, "product_name": "Daal Makhni", "quantity": 2, "unit_price": 14.99 }
+  ]
+}

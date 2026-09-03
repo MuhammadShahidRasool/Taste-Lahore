@@ -524,6 +524,7 @@ Object.entries(menuItems).forEach(([categoryKey, items]) => {
 
 let cart = [];
 const CART_STORAGE_KEY = 'tasteLahoreCart';
+const DELIVERY_FEE = 0;
 const cartToast = document.querySelector('.cart-toast');
 const cartOverlay = document.querySelector('.cart-overlay');
 const cartDrawer = document.querySelector('.cart-drawer');
@@ -534,6 +535,7 @@ const checkoutDrawer = document.querySelector('.checkout-drawer');
 const checkoutCloseButton = document.querySelector('.checkout-drawer__close');
 const checkoutProceedButton = document.querySelector('.checkout-proceed-btn');
 const checkoutForm = document.querySelector('.checkout-form');
+const checkoutSubmitButton = document.querySelector('.checkout-submit-btn');
 const checkoutSummaryItems = document.querySelector('.checkout-summary__items');
 const checkoutSubtotalValue = document.querySelector('.checkout-subtotal__value');
 const checkoutTotalValue = document.querySelector('.checkout-total__value');
@@ -617,6 +619,69 @@ function calculateCartSubtotal() {
     const product = products.find((menuProduct) => menuProduct.id === item.id);
     return sum + ((product ? product.price : item.price || 0) * Number(item.quantity || 0));
   }, 0);
+}
+
+function generateOrderId() {
+  const date = new Date();
+  const datePart = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('');
+  const randomPart = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+  return `TL-${datePart}-${randomPart}`;
+}
+
+function createOrderFromCheckout() {
+  if (!cart.length) {
+    throw new Error('Your cart is empty.');
+  }
+
+  if (!validateCheckoutForm()) {
+    throw new Error('Please complete all required fields.');
+  }
+
+  const customer = {
+    name: checkoutForm.querySelector('[name="name"]').value.trim(),
+    phone: checkoutForm.querySelector('[name="phone"]').value.trim(),
+    address: checkoutForm.querySelector('[name="address"]').value.trim(),
+    notes: checkoutForm.querySelector('[name="notes"]').value.trim()
+  };
+
+  const items = cart.map((cartItem) => {
+    const product = products.find((menuProduct) => menuProduct.id === Number(cartItem.id));
+    const quantity = Number(cartItem.quantity);
+
+    if (!product) {
+      throw new Error('A cart item is no longer available. Please review your cart.');
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      throw new Error('A cart item has an invalid quantity. Please review your cart.');
+    }
+
+    const itemTotal = product.price * quantity;
+    if (!Number.isFinite(itemTotal)) {
+      throw new Error('A cart item has an invalid total. Please review your cart.');
+    }
+
+    return {
+      id: product.id,
+      name: product.name,
+      quantity,
+      price: product.price,
+      itemTotal
+    };
+  });
+
+  const subtotal = items.reduce((sum, item) => sum + item.itemTotal, 0);
+  const total = subtotal + DELIVERY_FEE;
+
+  return {
+    orderId: generateOrderId(),
+    customer,
+    items,
+    subtotal,
+    deliveryFee: DELIVERY_FEE,
+    total,
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  };
 }
 
 function updateCartCount() {
@@ -798,7 +863,7 @@ function renderCheckout() {
 
   const summaryItems = getCheckoutSummaryItems();
   const subtotal = calculateCartSubtotal();
-  const deliveryFee = 0;
+  const deliveryFee = DELIVERY_FEE;
   const total = subtotal + deliveryFee;
 
   checkoutSummaryItems.innerHTML = summaryItems.map((item) => `
@@ -1087,17 +1152,50 @@ checkoutContinueButtons.forEach((button) => {
 });
 
 if (checkoutForm) {
-  checkoutForm.addEventListener('submit', (event) => {
+  checkoutForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     showCheckoutConfirmation('');
     closeCheckoutConfirmation();
 
-    if (!validateCheckoutForm()) {
-      showCheckoutConfirmation('Please complete all required fields.');
-      return;
-    }
+    try {
+      const order = createOrderFromCheckout();
+      if (checkoutSubmitButton) checkoutSubmitButton.disabled = true;
 
-    openCheckoutConfirmation('Your customer information has been successfully validated. Actual order submission will be connected in a future step.');
+      const response = await fetch('http://localhost:3000/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          customer_name: order.customer.name,
+          phone: order.customer.phone,
+          address: order.customer.address,
+          notes: order.customer.notes,
+          items: order.items.map((item) => ({
+            product_id: item.id,
+            product_name: item.name,
+            quantity: item.quantity,
+            unit_price: item.price
+          }))
+        })
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Something went wrong, please try again.');
+      }
+
+      cart = [];
+      saveCart();
+      updateCartCount();
+      renderCart();
+      renderCheckout();
+      openCheckoutConfirmation(`Order ${result.order_id} placed successfully. Total: ${formatPrice(result.total)}.`);
+    } catch (error) {
+      showCheckoutConfirmation(error.message || 'Something went wrong, please try again.');
+    } finally {
+      if (checkoutSubmitButton) checkoutSubmitButton.disabled = false;
+    }
   });
 
   ['name', 'phone', 'address'].forEach((fieldName) => {
